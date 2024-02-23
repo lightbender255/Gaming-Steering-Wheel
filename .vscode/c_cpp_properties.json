@@ -3,12 +3,16 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/**"
+                "${workspaceFolder}/**",
+                "F:/Users/kevinv/Documents/Arduino/libraries/**",
+                "C:/Users/kevinv/AppData/Local/Arduino15/**"
             ],
             "defines": [
                 "_DEBUG",
                 "UNICODE",
-                "_UNICODE"
+                "_UNICODE",
+                "ARDUINO=10813",
+                "USBCON"
             ],
             "intelliSenseMode": "windows-gcc-x64",
             "compilerPath": "C:/msys64/ucrt64/bin/g++.exe"
