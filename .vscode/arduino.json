@@ -1,4 +1,5 @@
 {
     "board": "arduino:avr:leonardo",
-    "sketch": "arduino_code\\MyTesting\\JoystickButton\\JoystickButton.ino"
+    "sketch": "arduino_code\\MyTesting\\JoystickButton\\JoystickButton.ino",
+    "port": "COM9"
 }
