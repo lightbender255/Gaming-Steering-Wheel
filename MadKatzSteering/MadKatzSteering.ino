@@ -1,4 +1,6 @@
-#include <Joystick.h>
+#include <Joystick.h> // This library: https://github.com/MHeironimus/ArduinoJoystickLibrary/releases
+
+// BUG: Brake not working --- likely a hard ware problem
 
 const bool INCLUDE_X_AXIS = true;
 const bool INCLUDE_Y_AXIS = true;
@@ -15,7 +17,7 @@ const bool INCLUDE_STEERING = true;
 const int BRAKE_ADJUSTMENT = 17;
 const int GAS_ADJUSTMENT = 33;
 const int STEERING_ADJUSTMENT = 0;
-const int BUTTON_COUNT = 4;
+const int BUTTON_COUNT = 2;
 const int HAT_SWITCH_COUNT = 0;
 const int GAS_MIN = 400;
 const int BRAKE_MIN = 0;
@@ -23,7 +25,7 @@ const int STEERING_MIN = 0;
 const int GAS_MAX = 1023;
 
 const int OUTPUT_SERIAL_TEXT = false;
-const int OUTPUT_SERIAL_GRAPH = true;
+const int OUTPUT_SERIAL_GRAPH = false;
 
 // Create Joystick
 Joystick_ Joystick(
@@ -48,10 +50,12 @@ void setup()
   pinMode(11, INPUT_PULLUP);
   pinMode(12, INPUT_PULLUP);
   Joystick.begin();
-  Joystick.setXAxisRange(0, 1023);  // steering
+  
+  // Joystick.setXAxisRange(0, 1023);  // steering
+  Joystick.setRzAxisRange(0, 1023);
+ 
   Joystick.setRxAxisRange(0, 1023); // brake
   Joystick.setRyAxisRange(0, 1023); // gas
-  Joystick.setSteeringRange(0, 1023);
   pinMode(A0, INPUT_PULLUP);
   pinMode(A1, INPUT_PULLUP);
   pinMode(A2, INPUT_PULLUP);
@@ -67,7 +71,7 @@ void setup()
 const int pinToButtonMap = 9;
 
 // Last state of the button
-int lastButtonState[4] = {0, 0, 0, 0};
+int lastButtonState[BUTTON_COUNT] = {0, 0};
 
 int previousSteeringValue = 0;
 int previousGasValue = 0;
@@ -75,13 +79,15 @@ int previousBrakeValue = 0;
 int brake = 0;
 int gas = 0;
 int steering = 0;
+int lastGas = 0;
+int lastBrake = 0;
 
 void loop()
 {
   steering = analogRead(A0);
   steering = hysteresis(steering, previousSteeringValue);
   steering -= STEERING_ADJUSTMENT;
-  Joystick.setXAxis(steering);
+  Joystick.setRzAxis(steering);
 
   gas = analogRead(A1);
   gas = hysteresis(gas, previousGasValue);
@@ -113,13 +119,19 @@ void loop()
     Serial.print(steering);
     Serial.print(" ]");
 
-    Serial.print("\tGas: [ ");
-    Serial.print(gas);
-    Serial.print(" ]");
+    if ( lastGas <= lastGas -5 || gas >= lastGas + 5 ) {
+      lastGas = gas;
+      Serial.print("\tGas: [ ");
+      Serial.print(gas);
+      Serial.print(" ]");
+    }
 
-    Serial.print("\tBrake: [ ");
-    Serial.print(brake);
-    Serial.print(" ]");
+    if (brake <= lastBrake-5 || brake >= lastBrake + 5) {
+      lastBrake = brake;
+      Serial.print("\tBrake: [ ");
+      Serial.print(brake);
+      Serial.print(" ]");
+    }
 
     Serial.println();
     delay(100);
@@ -134,7 +146,7 @@ void loop()
     Serial.print(brake);
   }
 
-  for (int index = 0; index < 4; index++)
+  for (int index = 0; index < BUTTON_COUNT; index++)
   {
     int currentButtonState = !digitalRead(index + pinToButtonMap);
     if (currentButtonState != lastButtonState[index])
