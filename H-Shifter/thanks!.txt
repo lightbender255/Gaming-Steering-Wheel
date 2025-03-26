@@ -1,0 +1,17 @@
+Hi there, 
+
+Thanks for purchasing this project!
+
+It should contain everything required (other than hardware) to make the h-shifter. 
+
+You should find...
+
+A build document
+10 STL files
+calibration sketch
+shifter sketch
+
+If you find anything wrong in the bundle, or want to suggest improvements by all means let me know. 
+Any improvemnets made to the design will be available free to you. 
+
+If you have purchased as a patreon member please DM me any issues otherwise email me at jason@fsc.co.nz
