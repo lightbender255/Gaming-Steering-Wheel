@@ -1,7 +1,9 @@
+import os
 import sys
 import time
+import logging
 import pywinusb.hid as hid
-from typing import List, Optional, Any # For type hinting
+from typing import List, Optional, Any  # For type hinting
 
 class HidDeviceManager:
     """
@@ -19,17 +21,17 @@ class HidDeviceManager:
         Finds all HID devices and stores them internally.
         Returns the number of devices found.
         """
-        print("--- Enumerating HID Devices ---")
+        logging.info("--- Enumerating HID Devices ---")
         try:
             # Clear previous list if re-enumerating
             self.devices = hid.find_all_hid_devices()
             if not self.devices:
-                print("No HID devices found.")
+                logging.info("No HID devices found.")
                 return 0
-            print(f"Found {len(self.devices)} HID devices.")
+            logging.info(f"Found {len(self.devices)} HID devices.")
             return len(self.devices)
         except Exception as e:
-            print(f"An error occurred during enumeration: {e}")
+            logging.error(f"An error occurred during enumeration: {e}")
             self.devices = []
             return 0
 
@@ -42,23 +44,22 @@ class HidDeviceManager:
                          its input capabilities from the report descriptor.
         """
         if not self.devices:
-            print("No devices to display. Call enumerate_devices() first.")
+            logging.info("No devices to display. Call enumerate_devices() first.")
             return
 
-        print("\n--- Displaying Device Information ---")
+        logging.info("\n--- Displaying Device Information ---")
         for index, device in enumerate(self.devices):
-            print(f"\nDevice {index}:")
+            logging.info(f"\nDevice {index}:")
             # Use getattr to safely access potentially missing string attributes
-            print(f"  Vendor ID : {getattr(device, 'vendor_id', 'N/A'):#06x}")
-            print(f"  Product ID: {getattr(device, 'product_id', 'N/A'):#06x}")
-            print(f"  Version   : {getattr(device, 'version_number', 'N/A')}")
+            logging.info(f"  Vendor ID : {getattr(device, 'vendor_id', 'N/A'):#06x}")
+            logging.info(f"  Product ID: {getattr(device, 'product_id', 'N/A'):#06x}")
+            logging.info(f"  Version   : {getattr(device, 'version_number', 'N/A')}")
             # Instance ID and Path are usually reliable from the OS enumeration
-            print(f"  Instance ID: {getattr(device, 'instance_id', 'N/A')}")
+            logging.info(f"  Instance ID: {getattr(device, 'instance_id', 'N/A')}")
             # Safely access potentially missing string descriptors
-            print(f"  Manuf. Str: {getattr(device, 'manufacturer_name', 'N/A')}")
-            print(f"  Product Str: {getattr(device, 'product_name', 'N/A')}")
-            print(f"  Path      : {getattr(device, 'device_path', 'N/A')}")
-
+            logging.info(f"  Manuf. Str: {getattr(device, 'manufacturer_name', 'N/A')}")
+            logging.info(f"  Product Str: {getattr(device, 'product_name', 'N/A')}")
+            logging.info(f"  Path      : {getattr(device, 'device_path', 'N/A')}")
 
             if show_inputs:
                 # --- Attempt to Inspect Inputs (Requires Opening Device) ---
@@ -68,12 +69,12 @@ class HidDeviceManager:
                     # Check if it's opened *before* trying to open
                     needs_open = not device.is_opened()
                     if needs_open:
-                         device.open()
-                         dev_opened = True # Track if we opened it here
+                        device.open()
+                        dev_opened = True  # Track if we opened it here
 
                     report_inputs = device.find_input_reports()
                     if report_inputs:
-                        print("  Input Capabilities (from Report Descriptor):")
+                        logging.info("  Input Capabilities (from Report Descriptor):")
                         for report in report_inputs:
                             for usage_path, usage_val_obj in report.items():
                                 report_id_val = getattr(usage_val_obj, 'report_id', None)
@@ -82,25 +83,27 @@ class HidDeviceManager:
                                 report_size_val = getattr(usage_val_obj, 'report_size', 0)
                                 report_count_val = getattr(usage_val_obj, 'report_count', 0)
 
-                                print(f"    - Report ID: {report_id_val if report_id_val is not None else 'N/A'}, "
-                                      f"Usage: {usage_page_val:#04x}:{usage_id_val:#04x}, "
-                                      f"Size: {report_size_val} bits, Count: {report_count_val}")
+                                logging.info(
+                                    f"    - Report ID: {report_id_val if report_id_val is not None else 'N/A'}, "
+                                    f"Usage: {usage_page_val:#04x}:{usage_id_val:#04x}, "
+                                    f"Size: {report_size_val} bits, Count: {report_count_val}")
                     else:
-                        print("  Could not find detailed input reports (or device requires special handling).")
+                        logging.info(
+                            "  Could not find detailed input reports (or device requires special handling).")
 
                 except Exception as e:
                     # Catching specific exceptions like hid.HIDError might be better
-                    print(f"  Could not open/inspect device reports: {e}")
+                    logging.error(f"  Could not open/inspect device reports: {e}")
                 finally:
                     # Only close if we opened it within this method
                     if dev_opened and device.is_opened():
                         device.close()
-        print("\n--- Device Display Complete ---")
+        logging.info("\n--- Device Display Complete ---")
 
     def _raw_event_handler(self, data: List[int]):
         """Internal callback function when raw data is received."""
         timestamp = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime())
-        print(f"[{timestamp}] Raw Data: {data}")
+        logging.info(f"[{timestamp}] Raw Data: {data}")
 
     def start_listening(self, device_index: int):
         """
@@ -108,76 +111,89 @@ class HidDeviceManager:
         This method blocks until listening stops or the device is unplugged.
         """
         self.listening_device = self.devices[device_index]
-        logging.debug(f"Listening device object: {self.listening_device}") # Added debug line
-        logging.debug(f"Device attributes: {dir(self.listening_device)}") # Added debug line
-        
+        logging.debug(f"Listening device object: {self.listening_device}")  # Added debug line
+        logging.debug(f"Device attributes: {dir(self.listening_device)}")  # Added debug line
+
         if self._is_listening:
-            print("Already listening to a device. Stop first.")
+            logging.info("Already listening to a device. Stop first.")
             return
         if not (0 <= device_index < len(self.devices)):
-            print(f"Error: Device index {device_index} is out of bounds.")
+            logging.error(f"Error: Device index {device_index} is out of bounds.")
             return
 
         self.listening_device = self.devices[device_index]
 
         try:
-            print(f"\n--- Attempting to listen to: {self.listening_device.product_name} (Index: {device_index}) ---")
-            self.listening_device.open(mode=hid.HID_READ_ACCESS) # Ensure read access
+            # logging.info(
+            logging.info(f"\n--- Attempting to listen to: {self.listening_device.product_name} (Index: {device_index}) ---")
+            self.listening_device.open(mode=hid.HID_READ_ACCESS)  # Ensure read access
 
             # Set the raw data handler
             self.listening_device.set_raw_data_handler(self._raw_event_handler)
             self._is_listening = True
-            print("Listening for events... Press Ctrl+C to stop.")
+            logging.info("Listening for events... Press Ctrl+C to stop.")
 
             # Keep this thread alive while listening and device is plugged
             # The handler runs in a background thread managed by pywinusb
             while self._is_listening and self.listening_device.is_plugged():
-                time.sleep(0.5) # Check periodically
+                time.sleep(0.5)  # Check periodically
 
             if not self.listening_device.is_plugged():
-                 print("Device appears to have been unplugged.")
+                logging.info("Device appears to have been unplugged.")
 
         except Exception as e:
-            print(f"Error starting listener for device {device_index}: {e}")
-            print("Ensure the script has necessary permissions (may need 'Run as Administrator').")
-            self._is_listening = False # Ensure state is correct on error
+            logging.error(f"Error starting listener for device {device_index}: {e}")
+            logging.error("Ensure the script has necessary permissions (may need 'Run as Administrator').")
+            self._is_listening = False  # Ensure state is correct on error
             if self.listening_device and self.listening_device.is_opened():
                 self.listening_device.close()
             self.listening_device = None
         finally:
             # If the loop exited cleanly (e.g., unplugged), ensure stop logic runs
             if self._is_listening:
-                self.stop_listening() # Call stop to clean up state and handler
+                self.stop_listening()  # Call stop to clean up state and handler
 
     def stop_listening(self):
         """Stops listening to the current device and closes it."""
         if not self._is_listening or self.listening_device is None:
-            print("Not currently listening.")
+            logging.info("Not currently listening.")
             return
 
-        print("\n--- Stopping Listener ---")
-        self._is_listening = False # Signal the loop in start_listening to exit
+        logging.info("\n--- Stopping Listener ---")
+        self._is_listening = False  # Signal the loop in start_listening to exit
 
         try:
             if self.listening_device.is_opened():
                 # Attempt to remove the handler (optional, closing usually suffices)
                 # self.listening_device.set_raw_data_handler(None)
                 self.listening_device.close()
-                print(f"Closed device: {self.listening_device.product_name}")
+                logging.info(f"Closed device: {self.listening_device.product_name}")
         except Exception as e:
-            print(f"Error closing device: {e}")
+            logging.error(f"Error closing device: {e}")
         finally:
             self.listening_device = None
-            print("Listener stopped.")
+            logging.info("Listener stopped.")
 
     def get_device(self, index: int) -> Optional[hid.HidDevice]:
-         """Gets the device object at the specified index."""
-         if 0 <= index < len(self.devices):
-              return self.devices[index]
-         return None
+        """Gets the device object at the specified index."""
+        if 0 <= index < len(self.devices):
+            return self.devices[index]
+        return None
+
 
 # --- Main Execution ---
 if __name__ == "__main__":
+    
+    # Change working directory to the directory that contains this script
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir)
+    
+    # Create the log file if it does not exist
+    open('logs/hid_listener.log', 'a').close()
+    
+    logging.basicConfig(filename='logs/hid_listener.log', level=logging.DEBUG,
+                        format='%(asctime)s - %(levelname)s - %(message)s')
+
     manager = HidDeviceManager()
     listener_started_successfully = False
 
@@ -190,28 +206,28 @@ if __name__ == "__main__":
             # Example: Listen to the first device found (index 0)
             # Modify this index based on the output of display_devices()
             target_device_index = 0
-            print(f"\n*** Will attempt to listen to device index: {target_device_index} ***")
-            time.sleep(1) # Brief pause before potentially blocking
+            logging.info(f"\n*** Will attempt to listen to device index: {target_device_index} ***")
+            time.sleep(1)  # Brief pause before potentially blocking
 
             target_device = manager.get_device(target_device_index)
             if target_device:
-                 # This call will block until Ctrl+C, device unplugged, or error
-                 manager.start_listening(target_device_index)
-                 # If start_listening exits normally (e.g. unplugged),
-                 # it calls stop_listening internally via its finally block.
+                # This call will block until Ctrl+C, device unplugged, or error
+                manager.start_listening(target_device_index)
+                # If start_listening exits normally (e.g. unplugged),
+                # it calls stop_listening internally via its finally block.
             else:
-                 print(f"Could not get device at index {target_device_index}.")
+                logging.info(f"Could not get device at index {target_device_index}.")
 
         else:
-            print("\nNo HID devices found to interact with.")
+            logging.info("\nNo HID devices found to interact with.")
 
     except KeyboardInterrupt:
-        print("\nCtrl+C detected. Initiating shutdown...")
+        logging.info("\nCtrl+C detected. Initiating shutdown...")
     except Exception as e:
-        print(f"\nAn unexpected error occurred in main execution: {e}")
+        logging.error(f"\nAn unexpected error occurred in main execution: {e}")
     finally:
         # Ensure listening stops cleanly if it was running
-        print("Performing final cleanup...")
-        manager.stop_listening() # Safe to call even if not listening
-        print("Program finished.")
+        logging.info("Performing final cleanup...")
+        manager.stop_listening()  # Safe to call even if not listening
+        logging.info("Program finished.")
         sys.exit(0)
