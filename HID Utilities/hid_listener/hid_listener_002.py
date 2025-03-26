@@ -4,6 +4,7 @@ import time
 import logging
 import pywinusb.hid as hid
 from typing import List, Optional, Any  # For type hinting
+import threading
 
 class HidDeviceManager:
     """
@@ -15,6 +16,7 @@ class HidDeviceManager:
         self.devices: List[hid.HidDevice] = []
         self.listening_device: Optional[hid.HidDevice] = None
         self._is_listening: bool = False
+        self._stop_event = threading.Event()  # Event to signal stop
 
     def enumerate_devices(self) -> int:
         """
@@ -131,12 +133,13 @@ class HidDeviceManager:
             # Set the raw data handler
             self.listening_device.set_raw_data_handler(self._raw_event_handler)
             self._is_listening = True
+            self._stop_event.clear() # Reset the stop event
             logging.info("Listening for events... Press Ctrl+C to stop.")
 
             # Keep this thread alive while listening and device is plugged
             # The handler runs in a background thread managed by pywinusb
-            while self._is_listening and self.listening_device.is_plugged():
-                time.sleep(0.5)  # Check periodically
+            while self._is_listening and self.listening_device.is_plugged() and not self._stop_event.is_set():
+                time.sleep(0.1)  # Check more frequently
 
             if not self.listening_device.is_plugged():
                 logging.info("Device appears to have been unplugged.")
@@ -161,6 +164,7 @@ class HidDeviceManager:
 
         logging.info("\n--- Stopping Listener ---")
         self._is_listening = False  # Signal the loop in start_listening to exit
+        self._stop_event.set() # Set the event to stop the loop
 
         try:
             if self.listening_device.is_opened():
@@ -223,11 +227,12 @@ if __name__ == "__main__":
 
     except KeyboardInterrupt:
         logging.info("\nCtrl+C detected. Initiating shutdown...")
+        manager.stop_listening()
     except Exception as e:
         logging.error(f"\nAn unexpected error occurred in main execution: {e}")
     finally:
         # Ensure listening stops cleanly if it was running
         logging.info("Performing final cleanup...")
-        manager.stop_listening()  # Safe to call even if not listening
+        #manager.stop_listening()  # Safe to call even if not listening
         logging.info("Program finished.")
         sys.exit(0)
