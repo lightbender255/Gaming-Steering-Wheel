@@ -1,0 +1,4 @@
+logging==0.4.9.6
+pynput==1.8.1
+pywinusb==0.4.2
+six==1.17.0
